@@ -297,16 +297,21 @@ flutter run -d windows
 
 ```bash
 flutter analyze   # Static analysis — 0 issues
-flutter test      # Widget tests   — 3/3 pass
+flutter test      # Unit & widget tests — 8/8 pass
 ```
 
 ### Test suite
 
-| Test | Verifies |
-|---|---|
-| Splash shows app name | `Travel Safety` text renders |
-| Splash shows tagline | Tagline text renders |
-| Splash navigates to registration | Routes to `/register` when no account exists |
+| Test File | Test | Verifies |
+|---|---|---|
+| `widget_test.dart` | Splash screen shows app name | `Travel Safety` title renders |
+| `widget_test.dart` | Splash screen shows tagline | Tagline text renders |
+| `widget_test.dart` | Splash navigates to registration | Routes to `/register` when no account exists |
+| `trip_test.dart` | Serialization and deserialization | `TripModel` `toJson()` and `fromJson()` consistency |
+| `trip_test.dart` | Delayed trip calculation | `isDelayed` computed property when start time + duration is exceeded |
+| `trip_test.dart` | Completed trip calculation | `elapsed` and status handling for completed trips |
+| `trip_test.dart` | Empty trip history handling | `TripService.getHistory()` returns clean empty list |
+| `trip_test.dart` | Active trip management | `startTrip()`, `getActiveTrip()`, and `endTrip()` persistence flow |
 
 ---
 
@@ -315,7 +320,7 @@ flutter test      # Widget tests   — 3/3 pass
 | Check | Phase 1 | Phase 2 |
 |---|---|---|
 | `flutter analyze` | ✅ | ✅ No issues |
-| `flutter test` | ✅ | ✅ 3/3 passed |
+| `flutter test` | ✅ | ✅ 8/8 passed |
 | Login / Registration / Logout | ✅ | ✅ Preserved |
 | Trusted person (user-entered phone) | ✅ | ✅ No hardcoded numbers |
 | Start Trip enabled | — | ✅ |
