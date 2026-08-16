@@ -1,14 +1,19 @@
 import 'auth_service.dart';
+import 'location_service.dart';
 import 'storage_service.dart';
+import 'trip_service.dart';
 
-/// Minimal service locator for Phase 1.
+/// Minimal service locator providing global singleton access to all services.
 ///
-/// Provides global access to shared service instances without adding a full
-/// DI framework. Replace with Riverpod, GetIt, or similar in a later phase
-/// when the app grows in complexity.
+/// Replace with Riverpod, GetIt, or similar when the app grows in complexity.
 class ServiceLocator {
   ServiceLocator._();
 
+  // Phase 1 services
   static final StorageService storage = StorageService();
   static final AuthService auth = AuthService(storage);
+
+  // Phase 2 services
+  static final TripService trip = TripService();
+  static final LocationService location = LocationService();
 }

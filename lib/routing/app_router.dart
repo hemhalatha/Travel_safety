@@ -6,17 +6,20 @@ import '../screens/auth/registration_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/splash/splash_screen.dart';
+import '../screens/trip/active_trip_screen.dart';
+import '../screens/trip/emergency_screen.dart';
+import '../screens/trip/trip_setup_screen.dart';
 import '../screens/trusted_person/trusted_person_screen.dart';
 
 /// Centralized route factory.
 ///
-/// Add new routes here as phases are implemented. All route name strings
-/// live in [AppConstants] to prevent magic strings.
+/// All route name strings live in [AppConstants] to prevent magic strings.
 class AppRouter {
   AppRouter._();
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
+      // ── Phase 1 routes ────────────────────────────────────────────────────
       case AppConstants.routeSplash:
         return _fadeRoute(const SplashScreen());
       case AppConstants.routeLogin:
@@ -41,6 +44,24 @@ class AppRouter {
           builder: (_) => const ProfileScreen(),
           settings: settings,
         );
+
+      // ── Phase 2 routes ────────────────────────────────────────────────────
+      case AppConstants.routeTripSetup:
+        return MaterialPageRoute<void>(
+          builder: (_) => const TripSetupScreen(),
+          settings: settings,
+        );
+      case AppConstants.routeActiveTrip:
+        return MaterialPageRoute<void>(
+          builder: (_) => const ActiveTripScreen(),
+          settings: settings,
+        );
+      case AppConstants.routeEmergency:
+        return MaterialPageRoute<void>(
+          builder: (_) => const EmergencyScreen(),
+          settings: settings,
+        );
+
       default:
         return MaterialPageRoute<void>(
           builder: (_) => const Scaffold(

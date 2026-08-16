@@ -1,7 +1,7 @@
 name: travel_safety_app
 description: "Travel Safety - Passive Journey Monitoring Application"
 publish_to: 'none'
-version: 1.0.0+1
+version: 2.0.0+2
 
 environment:
   sdk: '>=3.5.0 <4.0.0'
@@ -11,6 +11,8 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.2.3
+  geolocator: ^13.0.2
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:

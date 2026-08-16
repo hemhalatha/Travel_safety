@@ -17,4 +17,9 @@ class AppConstants {
   static const String routeHome = '/home';
   static const String routeTrustedPerson = '/trusted-person';
   static const String routeProfile = '/profile';
+
+  // Phase 2 routes
+  static const String routeTripSetup = '/trip-setup';
+  static const String routeActiveTrip = '/active-trip';
+  static const String routeEmergency = '/emergency';
 }
