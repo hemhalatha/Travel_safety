@@ -68,18 +68,23 @@ class TripService {
 
   /// Returns completed trips, most recent first, capped at [_maxHistoryItems].
   Future<List<TripModel>> getHistory() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jsonList = prefs.getStringList(_keyTripHistory) ?? [];
-    return jsonList
-        .map((j) {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonList = prefs.getStringList(_keyTripHistory);
+      if (jsonList == null || jsonList.isEmpty) return const [];
+      final result = <TripModel>[];
+      for (final j in jsonList) {
+        if (j.isNotEmpty) {
           try {
-            return TripModel.fromJson(j);
-          } catch (_) {
-            return null;
-          }
-        })
-        .whereType<TripModel>()
-        .toList();
+            final model = TripModel.fromJson(j);
+            result.add(model);
+          } catch (_) {}
+        }
+      }
+      return result;
+    } catch (_) {
+      return const [];
+    }
   }
 
   Future<void> _addToHistory(

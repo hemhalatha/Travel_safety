@@ -32,22 +32,30 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadData() async {
-    final user = await ServiceLocator.auth.getCurrentUser();
-    final activeTrip = await ServiceLocator.trip.getActiveTrip();
-    final history = await ServiceLocator.trip.getHistory();
+    try {
+      final user = await ServiceLocator.auth.getCurrentUser();
+      final activeTrip = await ServiceLocator.trip.getActiveTrip();
+      final history = await ServiceLocator.trip.getHistory();
 
-    if (!mounted) return;
-    setState(() {
-      _user = user;
-      _activeTrip = activeTrip;
-      _tripHistory = history;
-      _isLoading = false;
-    });
+      if (!mounted) return;
+      setState(() {
+        _user = user;
+        _activeTrip = activeTrip;
+        _tripHistory = history;
+        _isLoading = false;
+      });
 
-    if (user == null && mounted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.of(context)
-            .pushReplacementNamed(AppConstants.routeLogin);
+      if (user == null && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Navigator.of(context)
+              .pushReplacementNamed(AppConstants.routeLogin);
+        });
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _tripHistory = const [];
+        _isLoading = false;
       });
     }
   }
