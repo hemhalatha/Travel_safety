@@ -7,6 +7,8 @@ enum TripStatus { active, completed, cancelled }
 ///
 /// [id]              — millisecond epoch string, unique per trip.
 /// [destination]     — user-entered destination text.
+/// [destinationLatitude] and [destinationLongitude] — selected map pin, when
+/// available from search or map pinning.
 /// [durationMinutes] — expected trip duration in minutes.
 /// [startTime]       — when the trip was started.
 /// [endTime]         — when the trip was ended (null while active).
@@ -14,6 +16,10 @@ enum TripStatus { active, completed, cancelled }
 class TripModel {
   final String id;
   final String destination;
+  final double? destinationLatitude;
+  final double? destinationLongitude;
+  final double? routeDistanceKm;
+  final List<TripCoordinate> routePath;
   final int durationMinutes;
   final DateTime startTime;
   final DateTime? endTime;
@@ -22,6 +28,10 @@ class TripModel {
   const TripModel({
     required this.id,
     required this.destination,
+    this.destinationLatitude,
+    this.destinationLongitude,
+    this.routeDistanceKm,
+    this.routePath = const [],
     required this.durationMinutes,
     required this.startTime,
     this.endTime,
@@ -32,9 +42,11 @@ class TripModel {
 
   bool get isActive => status == TripStatus.active;
 
+  bool get hasDestinationCoordinates =>
+      destinationLatitude != null && destinationLongitude != null;
+
   /// Elapsed time since the trip started (uses endTime when completed).
-  Duration get elapsed =>
-      (endTime ?? DateTime.now()).difference(startTime);
+  Duration get elapsed => (endTime ?? DateTime.now()).difference(startTime);
 
   /// Minutes remaining until expected trip end.
   /// Negative when trip is delayed.
@@ -51,6 +63,10 @@ class TripModel {
   TripModel copyWith({
     String? id,
     String? destination,
+    double? destinationLatitude,
+    double? destinationLongitude,
+    double? routeDistanceKm,
+    List<TripCoordinate>? routePath,
     int? durationMinutes,
     DateTime? startTime,
     DateTime? endTime,
@@ -59,6 +75,10 @@ class TripModel {
       TripModel(
         id: id ?? this.id,
         destination: destination ?? this.destination,
+        destinationLatitude: destinationLatitude ?? this.destinationLatitude,
+        destinationLongitude: destinationLongitude ?? this.destinationLongitude,
+        routeDistanceKm: routeDistanceKm ?? this.routeDistanceKm,
+        routePath: routePath ?? this.routePath,
         durationMinutes: durationMinutes ?? this.durationMinutes,
         startTime: startTime ?? this.startTime,
         endTime: endTime ?? this.endTime,
@@ -70,6 +90,10 @@ class TripModel {
   Map<String, dynamic> toMap() => {
         'id': id,
         'destination': destination,
+        'destinationLatitude': destinationLatitude,
+        'destinationLongitude': destinationLongitude,
+        'routeDistanceKm': routeDistanceKm,
+        'routePath': routePath.map((p) => p.toMap()).toList(),
         'durationMinutes': durationMinutes,
         'startTime': startTime.toIso8601String(),
         'endTime': endTime?.toIso8601String(),
@@ -79,6 +103,10 @@ class TripModel {
   factory TripModel.fromMap(Map<String, dynamic> map) => TripModel(
         id: map['id'] as String,
         destination: map['destination'] as String,
+        destinationLatitude: (map['destinationLatitude'] as num?)?.toDouble(),
+        destinationLongitude: (map['destinationLongitude'] as num?)?.toDouble(),
+        routeDistanceKm: (map['routeDistanceKm'] as num?)?.toDouble(),
+        routePath: _routePathFromMap(map['routePath']),
         durationMinutes: (map['durationMinutes'] as num).toInt(),
         startTime: DateTime.parse(map['startTime'] as String),
         endTime: map['endTime'] != null
@@ -94,4 +122,32 @@ class TripModel {
 
   factory TripModel.fromJson(String source) =>
       TripModel.fromMap(jsonDecode(source) as Map<String, dynamic>);
+
+  static List<TripCoordinate> _routePathFromMap(Object? value) {
+    if (value is! List) return const [];
+    return value
+        .whereType<Map<String, dynamic>>()
+        .map(TripCoordinate.fromMap)
+        .toList();
+  }
+}
+
+class TripCoordinate {
+  final double latitude;
+  final double longitude;
+
+  const TripCoordinate({
+    required this.latitude,
+    required this.longitude,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'latitude': latitude,
+        'longitude': longitude,
+      };
+
+  factory TripCoordinate.fromMap(Map<String, dynamic> map) => TripCoordinate(
+        latitude: (map['latitude'] as num).toDouble(),
+        longitude: (map['longitude'] as num).toDouble(),
+      );
 }

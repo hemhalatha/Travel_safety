@@ -128,8 +128,7 @@ class AppTheme {
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         labelStyle: const TextStyle(color: mutedGray, fontSize: 14),
         hintStyle: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
-        floatingLabelStyle:
-            const TextStyle(color: primaryNavy, fontSize: 12),
+        floatingLabelStyle: const TextStyle(color: primaryNavy, fontSize: 12),
         prefixIconColor: mutedGray,
         suffixIconColor: mutedGray,
       ),
@@ -183,8 +182,7 @@ class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: primaryNavy,
-          textStyle:
-              const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
         ),
       ),
 
@@ -199,8 +197,7 @@ class AppTheme {
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: charcoal,
-        contentTextStyle:
-            const TextStyle(color: surfaceWhite, fontSize: 14),
+        contentTextStyle: const TextStyle(color: surfaceWhite, fontSize: 14),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
         ),

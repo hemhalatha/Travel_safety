@@ -186,8 +186,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         TextButton(
                           onPressed: () => Navigator.of(context)
-                              .pushReplacementNamed(
-                                  AppConstants.routeRegister),
+                              .pushReplacementNamed(AppConstants.routeRegister),
                           child: const Text('Create account'),
                         ),
                       ],
@@ -232,8 +231,7 @@ class _ErrorBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.error_outline,
-              size: 16, color: scheme.onErrorContainer),
+          Icon(Icons.error_outline, size: 16, color: scheme.onErrorContainer),
           const SizedBox(width: 8),
           Expanded(
             child: Text(

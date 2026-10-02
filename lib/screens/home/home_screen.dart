@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
+import '../../models/trusted_person_model.dart';
 import '../../models/trip_model.dart';
 import '../../models/user_model.dart';
 import '../../services/service_locator.dart';
@@ -47,8 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (user == null && mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          Navigator.of(context)
-              .pushReplacementNamed(AppConstants.routeLogin);
+          Navigator.of(context).pushReplacementNamed(AppConstants.routeLogin);
         });
       }
     } catch (_) {
@@ -63,8 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-          body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (_user == null) return const SizedBox.shrink();
 
@@ -100,11 +99,9 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 32),
 
             // ── Trusted person ─────────────────────────────────────────────
-            const SectionHeader(title: 'Trusted Person'),
+            const SectionHeader(title: 'Trusted Contacts'),
             _TrustedPersonTile(
-              name: _user!.trustedPerson.name,
-              phone: _user!.trustedPerson.phone,
-              relationship: _user!.trustedPerson.relationship,
+              trustedPeople: _user!.trustedPeople,
               onTap: () => Navigator.of(context)
                   .pushNamed(AppConstants.routeTrustedPerson)
                   .then((_) => _loadData()),
@@ -387,15 +384,11 @@ class _Greeting extends StatelessWidget {
 }
 
 class _TrustedPersonTile extends StatelessWidget {
-  final String name;
-  final String phone;
-  final String relationship;
+  final List<TrustedPersonModel> trustedPeople;
   final VoidCallback onTap;
 
   const _TrustedPersonTile({
-    required this.name,
-    required this.phone,
-    required this.relationship,
+    required this.trustedPeople,
     required this.onTap,
   });
 
@@ -428,7 +421,9 @@ class _TrustedPersonTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      name,
+                      trustedPeople.isEmpty
+                          ? 'No trusted contacts'
+                          : '${trustedPeople.length} trusted contact(s)',
                       style: const TextStyle(
                         color: AppTheme.charcoal,
                         fontSize: 15,
@@ -437,7 +432,11 @@ class _TrustedPersonTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '$relationship · $phone',
+                      trustedPeople.isEmpty
+                          ? 'Add contacts for emergency alerts'
+                          : trustedPeople
+                              .map((p) => '${p.name} · ${p.relationship}')
+                              .join(', '),
                       style: const TextStyle(
                         color: AppTheme.mutedGray,
                         fontSize: 13,
@@ -561,9 +560,21 @@ class _StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color, bg) = switch (status) {
-      TripStatus.active => ('Active', AppTheme.primaryNavy, const Color(0xFFEFF6FF)),
-      TripStatus.completed => ('Done', AppTheme.safeColor, AppTheme.safeContainer),
-      TripStatus.cancelled => ('Cancelled', AppTheme.mutedGray, AppTheme.borderLight),
+      TripStatus.active => (
+          'Active',
+          AppTheme.primaryNavy,
+          const Color(0xFFEFF6FF),
+        ),
+      TripStatus.completed => (
+          'Done',
+          AppTheme.safeColor,
+          AppTheme.safeContainer,
+        ),
+      TripStatus.cancelled => (
+          'Cancelled',
+          AppTheme.mutedGray,
+          AppTheme.borderLight,
+        ),
     };
 
     return Container(

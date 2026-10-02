@@ -16,45 +16,65 @@ class UserModel {
   /// Base64-encoded password. Prototype only — see security note above.
   final String passwordHash;
 
-  /// The user-designated trusted contact. Their phone number is entered
-  /// exclusively by the user during registration; it is never hardcoded.
-  final TrustedPersonModel trustedPerson;
+  /// User-designated trusted contacts. Phone numbers are entered exclusively by
+  /// the user; they are never hardcoded.
+  final List<TrustedPersonModel> trustedPeople;
 
   const UserModel({
     required this.name,
     required this.phone,
     required this.passwordHash,
-    required this.trustedPerson,
+    required this.trustedPeople,
   });
+
+  TrustedPersonModel get trustedPerson => trustedPeople.first;
+
+  TrustedPersonModel? get primaryTrustedPerson =>
+      trustedPeople.isEmpty ? null : trustedPeople.first;
 
   UserModel copyWith({
     String? name,
     String? phone,
     String? passwordHash,
+    List<TrustedPersonModel>? trustedPeople,
     TrustedPersonModel? trustedPerson,
   }) =>
       UserModel(
         name: name ?? this.name,
         phone: phone ?? this.phone,
         passwordHash: passwordHash ?? this.passwordHash,
-        trustedPerson: trustedPerson ?? this.trustedPerson,
+        trustedPeople: trustedPeople ??
+            (trustedPerson != null ? [trustedPerson] : this.trustedPeople),
       );
 
   Map<String, dynamic> toMap() => {
         'name': name,
         'phone': phone,
         'passwordHash': passwordHash,
-        'trustedPerson': trustedPerson.toMap(),
+        'trustedPeople': trustedPeople.map((p) => p.toMap()).toList(),
       };
 
-  factory UserModel.fromMap(Map<String, dynamic> map) => UserModel(
-        name: map['name'] as String,
-        phone: map['phone'] as String,
-        passwordHash: map['passwordHash'] as String,
-        trustedPerson: TrustedPersonModel.fromMap(
-          map['trustedPerson'] as Map<String, dynamic>,
-        ),
-      );
+  factory UserModel.fromMap(Map<String, dynamic> map) {
+    final trustedPeopleRaw = map['trustedPeople'];
+    final trustedPeople = trustedPeopleRaw is List
+        ? trustedPeopleRaw
+            .whereType<Map<String, dynamic>>()
+            .map(TrustedPersonModel.fromMap)
+            .toList()
+        : <TrustedPersonModel>[];
+
+    final legacyTrustedPerson = map['trustedPerson'];
+    if (trustedPeople.isEmpty && legacyTrustedPerson is Map<String, dynamic>) {
+      trustedPeople.add(TrustedPersonModel.fromMap(legacyTrustedPerson));
+    }
+
+    return UserModel(
+      name: map['name'] as String,
+      phone: map['phone'] as String,
+      passwordHash: map['passwordHash'] as String,
+      trustedPeople: trustedPeople,
+    );
+  }
 
   String toJson() => jsonEncode(toMap());
 

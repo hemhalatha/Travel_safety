@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_theme.dart';
 import '../../models/trusted_person_model.dart';
 import '../../services/service_locator.dart';
 import '../../widgets/app_text_field.dart';
 
-/// Displays the current trusted person's details and allows editing.
-///
-/// Changes are validated and persisted to local storage via [AuthService].
-/// The phone number shown is whatever the user entered during registration
-/// or a subsequent edit — nothing is hardcoded.
 class TrustedPersonScreen extends StatefulWidget {
   const TrustedPersonScreen({super.key});
 
@@ -17,20 +13,142 @@ class TrustedPersonScreen extends StatefulWidget {
 }
 
 class _TrustedPersonScreenState extends State<TrustedPersonScreen> {
-  TrustedPersonModel? _current;
+  final List<TrustedPersonModel> _trustedPeople = [];
   bool _isLoading = true;
-  bool _isEditing = false;
   bool _isSaving = false;
-
-  final _formKey = GlobalKey<FormState>();
-  final _nameCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
-  final _relationshipCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  Future<void> _load() async {
+    final user = await ServiceLocator.auth.getCurrentUser();
+    if (!mounted) return;
+    setState(() {
+      _trustedPeople
+        ..clear()
+        ..addAll(user?.trustedPeople ?? const []);
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _save() async {
+    setState(() => _isSaving = true);
+    await ServiceLocator.auth.updateTrustedPeople(_trustedPeople);
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Trusted contacts updated')),
+    );
+  }
+
+  Future<void> _openEditor({TrustedPersonModel? person, int? index}) async {
+    final updated = await showModalBottomSheet<TrustedPersonModel>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _TrustedPersonEditor(person: person),
+    );
+    if (updated == null) return;
+    setState(() {
+      if (index == null) {
+        _trustedPeople.add(updated);
+      } else {
+        _trustedPeople[index] = updated;
+      }
+    });
+  }
+
+  void _removeAt(int index) {
+    setState(() => _trustedPeople.removeAt(index));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Trusted Contacts'),
+        actions: [
+          TextButton.icon(
+            onPressed: _isSaving ? null : _save,
+            icon: _isSaving
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.save_outlined),
+            label: const Text('Save'),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _openEditor(),
+        icon: const Icon(Icons.person_add_alt_1),
+        label: const Text('Add'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+          children: [
+            const _InfoNote(
+              message:
+                  'Emergency alerts are sent as SMS drafts to every trusted contact.',
+            ),
+            const SizedBox(height: 16),
+            for (var i = 0; i < _trustedPeople.length; i++) ...[
+              Card(
+                child: ListTile(
+                  leading:
+                      const Icon(Icons.people, color: AppTheme.primaryNavy),
+                  title: Text(_trustedPeople[i].name),
+                  subtitle: Text(
+                    '${_trustedPeople[i].relationship} · ${_trustedPeople[i].phone}',
+                  ),
+                  onTap: () => _openEditor(person: _trustedPeople[i], index: i),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: 'Remove',
+                    onPressed: () => _removeAt(i),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TrustedPersonEditor extends StatefulWidget {
+  final TrustedPersonModel? person;
+
+  const _TrustedPersonEditor({this.person});
+
+  @override
+  State<_TrustedPersonEditor> createState() => _TrustedPersonEditorState();
+}
+
+class _TrustedPersonEditorState extends State<_TrustedPersonEditor> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _phoneCtrl;
+  late final TextEditingController _relationshipCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.person?.name ?? '');
+    _phoneCtrl = TextEditingController(text: widget.person?.phone ?? '');
+    _relationshipCtrl =
+        TextEditingController(text: widget.person?.relationship ?? '');
   }
 
   @override
@@ -41,193 +159,70 @@ class _TrustedPersonScreenState extends State<TrustedPersonScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    final user = await ServiceLocator.auth.getCurrentUser();
-    if (!mounted) return;
-    final tp = user?.trustedPerson;
-    setState(() {
-      _current = tp;
-      _isLoading = false;
-    });
-    if (tp != null) {
-      _nameCtrl.text = tp.name;
-      _phoneCtrl.text = tp.phone;
-      _relationshipCtrl.text = tp.relationship;
-    }
-  }
-
-  void _startEditing() => setState(() => _isEditing = true);
-
-  void _cancelEditing() {
-    // Restore controllers to current saved values.
-    if (_current != null) {
-      _nameCtrl.text = _current!.name;
-      _phoneCtrl.text = _current!.phone;
-      _relationshipCtrl.text = _current!.relationship;
-    }
-    setState(() => _isEditing = false);
-  }
-
-  Future<void> _save() async {
+  void _submit() {
     if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isSaving = true);
-
-    final updated = TrustedPersonModel(
-      name: _nameCtrl.text.trim(),
-      phone: _phoneCtrl.text.trim(),
-      relationship: _relationshipCtrl.text.trim(),
-    );
-
-    await ServiceLocator.auth.updateTrustedPerson(updated);
-
-    if (!mounted) return;
-    setState(() {
-      _current = updated;
-      _isEditing = false;
-      _isSaving = false;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Trusted person updated')),
+    Navigator.of(context).pop(
+      TrustedPersonModel(
+        name: _nameCtrl.text.trim(),
+        phone: _phoneCtrl.text.trim(),
+        relationship: _relationshipCtrl.text.trim(),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Trusted Person'),
-        actions: [
-          if (!_isEditing && !_isLoading)
-            TextButton.icon(
-              icon: const Icon(Icons.edit),
-              label: const Text('Edit'),
-              onPressed: _startEditing,
-            ),
-        ],
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Avatar
-                      Center(
-                        child: Container(
-                          padding: const EdgeInsets.all(22),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.secondaryContainer,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.people,
-                            size: 40,
-                            color: theme.colorScheme.onSecondaryContainer,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 28),
-
-                      if (!_isEditing) ...[
-                        // ── View mode ──────────────────────────────────────
-                        _DetailRow(
-                          theme: theme,
-                          icon: Icons.person_outline,
-                          label: 'Name',
-                          value: _current?.name ?? '—',
-                        ),
-                        const Divider(height: 32),
-                        _DetailRow(
-                          theme: theme,
-                          icon: Icons.phone,
-                          label: 'Phone Number',
-                          value: _current?.phone ?? '—',
-                        ),
-                        const Divider(height: 32),
-                        _DetailRow(
-                          theme: theme,
-                          icon: Icons.favorite_border,
-                          label: 'Relationship',
-                          value: _current?.relationship ?? '—',
-                        ),
-                        const SizedBox(height: 32),
-                        _InfoNote(
-                          theme: theme,
-                          message:
-                              'This person can be contacted during a safety escalation.',
-                        ),
-                      ] else ...[
-                        // ── Edit mode ──────────────────────────────────────
-                        Text(
-                          'Update Details',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 20),
-                        AppTextField(
-                          controller: _nameCtrl,
-                          label: 'Name',
-                          prefixIcon: Icons.person_outline,
-                          textCapitalization: TextCapitalization.words,
-                          textInputAction: TextInputAction.next,
-                          validator: (v) =>
-                              (v == null || v.trim().isEmpty)
-                                  ? 'Name is required'
-                                  : null,
-                        ),
-                        const SizedBox(height: 16),
-                        AppTextField(
-                          controller: _phoneCtrl,
-                          label: 'Phone Number',
-                          keyboardType: TextInputType.phone,
-                          prefixIcon: Icons.phone_outlined,
-                          textInputAction: TextInputAction.next,
-                          validator: _validatePhone,
-                        ),
-                        const SizedBox(height: 16),
-                        AppTextField(
-                          controller: _relationshipCtrl,
-                          label: 'Relationship',
-                          hint: 'e.g. Mother, Spouse, Friend',
-                          prefixIcon: Icons.favorite_border,
-                          textCapitalization: TextCapitalization.words,
-                          textInputAction: TextInputAction.done,
-                          validator: (v) =>
-                              (v == null || v.trim().isEmpty)
-                                  ? 'Relationship is required'
-                                  : null,
-                        ),
-                        const SizedBox(height: 28),
-                        ElevatedButton(
-                          onPressed: _isSaving ? null : _save,
-                          child: _isSaving
-                              ? const SizedBox(
-                                  height: 22,
-                                  width: 22,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2.5),
-                                )
-                              : const Text('Save Changes'),
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton(
-                          onPressed: _cancelEditing,
-                          child: const Text('Cancel'),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppTextField(
+              controller: _nameCtrl,
+              label: 'Name',
+              prefixIcon: Icons.person_outline,
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.next,
+              validator: (v) =>
+                  v == null || v.trim().isEmpty ? 'Name is required' : null,
             ),
+            const SizedBox(height: 14),
+            AppTextField(
+              controller: _phoneCtrl,
+              label: 'Phone Number',
+              keyboardType: TextInputType.phone,
+              prefixIcon: Icons.phone_outlined,
+              textInputAction: TextInputAction.next,
+              validator: _validatePhone,
+            ),
+            const SizedBox(height: 14),
+            AppTextField(
+              controller: _relationshipCtrl,
+              label: 'Relationship',
+              hint: 'e.g. Mother, Friend',
+              prefixIcon: Icons.favorite_border,
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.done,
+              validator: (v) => v == null || v.trim().isEmpty
+                  ? 'Relationship is required'
+                  : null,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _submit,
+              child: Text(
+                  widget.person == null ? 'Add Contact' : 'Update Contact'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -243,80 +238,34 @@ class _TrustedPersonScreenState extends State<TrustedPersonScreen> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Private helpers
-// ---------------------------------------------------------------------------
-
-class _DetailRow extends StatelessWidget {
-  final ThemeData theme;
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _DetailRow({
-    required this.theme,
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 20, color: theme.colorScheme.primary),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: theme.textTheme.bodyLarge
-                    ?.copyWith(fontWeight: FontWeight.w500),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _InfoNote extends StatelessWidget {
-  final ThemeData theme;
   final String message;
 
-  const _InfoNote({required this.theme, required this.message});
+  const _InfoNote({required this.message});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer,
+        color: Theme.of(context).colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline,
-              size: 18, color: theme.colorScheme.onPrimaryContainer),
+          Icon(
+            Icons.info_outline,
+            size: 18,
+            color: Theme.of(context).colorScheme.onPrimaryContainer,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               message,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onPrimaryContainer,
-              ),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
             ),
           ),
         ],

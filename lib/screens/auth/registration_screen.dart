@@ -72,17 +72,24 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       _errorMessage = null;
     });
 
-    final trustedPerson = TrustedPersonModel(
-      name: _trustedNameCtrl.text.trim(),
-      phone: _trustedPhoneCtrl.text.trim(),
-      relationship: _relationshipCtrl.text.trim(),
-    );
+    final hasTrustedContact = _trustedNameCtrl.text.trim().isNotEmpty ||
+        _trustedPhoneCtrl.text.trim().isNotEmpty ||
+        _relationshipCtrl.text.trim().isNotEmpty;
+    final trustedPeople = hasTrustedContact
+        ? [
+            TrustedPersonModel(
+              name: _trustedNameCtrl.text.trim(),
+              phone: _trustedPhoneCtrl.text.trim(),
+              relationship: _relationshipCtrl.text.trim(),
+            ),
+          ]
+        : <TrustedPersonModel>[];
 
     final result = await ServiceLocator.auth.register(
       name: _nameCtrl.text.trim(),
       phone: _phoneCtrl.text.trim(),
       password: _passwordCtrl.text,
-      trustedPerson: trustedPerson,
+      trustedPeople: trustedPeople,
     );
 
     if (!mounted) return;
@@ -118,7 +125,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 _StepDot(step: 1, current: _step),
                 const SizedBox(width: 12),
                 Text(
-                  _step == 0 ? 'Your Details' : 'Trusted Person',
+                  _step == 0 ? 'Your Details' : 'Trusted Contacts',
                   style: const TextStyle(
                     color: AppTheme.mutedGray,
                     fontSize: 12,
@@ -189,9 +196,8 @@ class _StepDot extends StatelessWidget {
       width: isActive ? 24 : 8,
       height: 8,
       decoration: BoxDecoration(
-        color: (isActive || isDone)
-            ? AppTheme.primaryNavy
-            : AppTheme.borderLight,
+        color:
+            (isActive || isDone) ? AppTheme.primaryNavy : AppTheme.borderLight,
         borderRadius: const BorderRadius.all(Radius.circular(4)),
       ),
     );
@@ -282,9 +288,11 @@ class _UserDetailsStep extends StatelessWidget {
             prefixIcon: Icons.lock_outline,
             textInputAction: TextInputAction.next,
             suffixIcon: IconButton(
-              icon: Icon(obscurePassword
-                  ? Icons.visibility_outlined
-                  : Icons.visibility_off_outlined, size: 20),
+              icon: Icon(
+                  obscurePassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                  size: 20),
               tooltip: obscurePassword ? 'Show password' : 'Hide password',
               onPressed: onTogglePassword,
             ),
@@ -302,9 +310,11 @@ class _UserDetailsStep extends StatelessWidget {
             prefixIcon: Icons.lock_outline,
             textInputAction: TextInputAction.done,
             suffixIcon: IconButton(
-              icon: Icon(obscureConfirm
-                  ? Icons.visibility_outlined
-                  : Icons.visibility_off_outlined, size: 20),
+              icon: Icon(
+                  obscureConfirm
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                  size: 20),
               tooltip: obscureConfirm ? 'Show password' : 'Hide password',
               onPressed: onToggleConfirm,
             ),
@@ -317,7 +327,7 @@ class _UserDetailsStep extends StatelessWidget {
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: onNext,
-            child: const Text('Next: Trusted Person'),
+            child: const Text('Next: Trusted Contacts'),
           ),
           const SizedBox(height: 16),
           Row(
@@ -340,7 +350,9 @@ class _UserDetailsStep extends StatelessWidget {
   }
 
   String? _validatePhone(String? value) {
-    if (value == null || value.trim().isEmpty) return 'Phone number is required';
+    if (value == null || value.trim().isEmpty) {
+      return 'Phone number is required';
+    }
     final digits = value.replaceAll(RegExp(r'[\s\-\(\)\+]'), '');
     if (digits.length < 7 || !RegExp(r'^\d+$').hasMatch(digits)) {
       return 'Enter a valid phone number';
@@ -380,7 +392,7 @@ class _TrustedPersonStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Trusted Person',
+            'Trusted Contacts',
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w700,
               color: AppTheme.charcoal,
@@ -389,16 +401,16 @@ class _TrustedPersonStep extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Who should we contact if something goes wrong?',
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: AppTheme.mutedGray),
+            'You can add emergency contacts now or later.',
+            style:
+                theme.textTheme.bodySmall?.copyWith(color: AppTheme.mutedGray),
           ),
           const SizedBox(height: 14),
 
           // Info note
           _InfoNote(
             message:
-                'This person can be contacted during a safety escalation. Enter a real phone number.',
+                'Optional. If you skip this, emergency alerts can be set up later from Trusted Contacts.',
             color: theme.colorScheme.primaryContainer,
             onColor: theme.colorScheme.onPrimaryContainer,
           ),
@@ -412,7 +424,9 @@ class _TrustedPersonStep extends StatelessWidget {
             textCapitalization: TextCapitalization.words,
             textInputAction: TextInputAction.next,
             validator: (v) =>
-                (v == null || v.trim().isEmpty) ? 'Name is required' : null,
+                _isContactStarted && (v == null || v.trim().isEmpty)
+                    ? 'Name is required'
+                    : null,
           ),
           const SizedBox(height: 14),
           AppTextField(
@@ -433,7 +447,7 @@ class _TrustedPersonStep extends StatelessWidget {
             textCapitalization: TextCapitalization.words,
             textInputAction: TextInputAction.done,
             validator: (v) =>
-                (v == null || v.trim().isEmpty)
+                _isContactStarted && (v == null || v.trim().isEmpty)
                     ? 'Relationship is required'
                     : null,
           ),
@@ -467,13 +481,21 @@ class _TrustedPersonStep extends StatelessWidget {
   }
 
   String? _validatePhone(String? value) {
-    if (value == null || value.trim().isEmpty) return 'Phone number is required';
+    if (!_isContactStarted) return null;
+    if (value == null || value.trim().isEmpty) {
+      return 'Phone number is required';
+    }
     final digits = value.replaceAll(RegExp(r'[\s\-\(\)\+]'), '');
     if (digits.length < 7 || !RegExp(r'^\d+$').hasMatch(digits)) {
       return 'Enter a valid phone number';
     }
     return null;
   }
+
+  bool get _isContactStarted =>
+      nameCtrl.text.trim().isNotEmpty ||
+      phoneCtrl.text.trim().isNotEmpty ||
+      relationshipCtrl.text.trim().isNotEmpty;
 }
 
 // ── Shared sub-widget ─────────────────────────────────────────────────────────

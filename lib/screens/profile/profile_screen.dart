@@ -204,7 +204,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-
 class _InfoTile extends StatelessWidget {
   final ThemeData theme;
   final IconData icon;

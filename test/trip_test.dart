@@ -26,6 +26,26 @@ void main() {
       expect(decoded.isDelayed, isFalse);
     });
 
+    test('Destination coordinates are serialized when selected', () {
+      final now = DateTime.now();
+      final trip = TripModel(
+        id: 'mapbox-1',
+        destination: 'Chennai Central',
+        destinationLatitude: 13.0827,
+        destinationLongitude: 80.2707,
+        durationMinutes: 30,
+        startTime: now,
+        status: TripStatus.active,
+      );
+
+      final decoded = TripModel.fromJson(trip.toJson());
+
+      expect(decoded.destination, equals('Chennai Central'));
+      expect(decoded.destinationLatitude, equals(13.0827));
+      expect(decoded.destinationLongitude, equals(80.2707));
+      expect(decoded.hasDestinationCoordinates, isTrue);
+    });
+
     test('Delayed trip calculation', () {
       final pastStart = DateTime.now().subtract(const Duration(minutes: 45));
       final trip = TripModel(
@@ -77,12 +97,18 @@ void main() {
 
       await tripService.startTrip(
         destination: 'T. Nagar',
+        destinationLatitude: 13.0418,
+        destinationLongitude: 80.2341,
+        routeDistanceKm: 12,
         durationMinutes: 45,
       );
 
       final active = await tripService.getActiveTrip();
       expect(active, isNotNull);
       expect(active!.destination, equals('T. Nagar'));
+      expect(active.destinationLatitude, equals(13.0418));
+      expect(active.destinationLongitude, equals(80.2341));
+      expect(active.routeDistanceKm, equals(12));
       expect(active.durationMinutes, equals(45));
       expect(active.isActive, isTrue);
 

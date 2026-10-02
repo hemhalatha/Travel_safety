@@ -30,6 +30,20 @@ class AuthService {
   bool _verifyPassword(String candidate, String stored) =>
       _encodePassword(candidate) == stored;
 
+  String _phoneDigits(String value) => value.replaceAll(RegExp(r'\D'), '');
+
+  bool _phoneMatches(String candidate, String stored) {
+    final candidateDigits = _phoneDigits(candidate);
+    final storedDigits = _phoneDigits(stored);
+    if (candidateDigits.isEmpty || storedDigits.isEmpty) return false;
+    if (candidateDigits == storedDigits) return true;
+    if (candidateDigits.length >= 10 && storedDigits.length >= 10) {
+      return candidateDigits.substring(candidateDigits.length - 10) ==
+          storedDigits.substring(storedDigits.length - 10);
+    }
+    return false;
+  }
+
   // ---------------------------------------------------------------------------
   // Public API
   // ---------------------------------------------------------------------------
@@ -41,7 +55,8 @@ class AuthService {
     required String name,
     required String phone,
     required String password,
-    required TrustedPersonModel trustedPerson,
+    TrustedPersonModel? trustedPerson,
+    List<TrustedPersonModel>? trustedPeople,
   }) async {
     final existing = await _storage.getUser();
     if (existing != null) {
@@ -56,7 +71,8 @@ class AuthService {
       name: name.trim(),
       phone: phone.trim(),
       passwordHash: _encodePassword(password),
-      trustedPerson: trustedPerson,
+      trustedPeople:
+          trustedPeople ?? (trustedPerson == null ? [] : [trustedPerson]),
     );
 
     await _storage.saveUser(user);
@@ -78,7 +94,7 @@ class AuthService {
       );
     }
 
-    final phoneMatch = user.phone == phone.trim();
+    final phoneMatch = _phoneMatches(phone, user.phone);
     final passwordMatch = _verifyPassword(password, user.passwordHash);
 
     if (!phoneMatch || !passwordMatch) {
@@ -111,5 +127,12 @@ class AuthService {
     final user = await _storage.getUser();
     if (user == null) return;
     await _storage.saveUser(user.copyWith(trustedPerson: trustedPerson));
+  }
+
+  Future<void> updateTrustedPeople(
+      List<TrustedPersonModel> trustedPeople) async {
+    final user = await _storage.getUser();
+    if (user == null) return;
+    await _storage.saveUser(user.copyWith(trustedPeople: trustedPeople));
   }
 }

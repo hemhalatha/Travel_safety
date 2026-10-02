@@ -18,11 +18,19 @@ class TripService {
   /// Creates and persists a new active trip.
   Future<void> startTrip({
     required String destination,
+    double? destinationLatitude,
+    double? destinationLongitude,
+    double? routeDistanceKm,
+    List<TripCoordinate> routePath = const [],
     required int durationMinutes,
   }) async {
     final trip = TripModel(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       destination: destination.trim(),
+      destinationLatitude: destinationLatitude,
+      destinationLongitude: destinationLongitude,
+      routeDistanceKm: routeDistanceKm,
+      routePath: routePath,
       durationMinutes: durationMinutes,
       startTime: DateTime.now(),
       status: TripStatus.active,
@@ -87,8 +95,7 @@ class TripService {
     }
   }
 
-  Future<void> _addToHistory(
-      SharedPreferences prefs, TripModel trip) async {
+  Future<void> _addToHistory(SharedPreferences prefs, TripModel trip) async {
     final existing = prefs.getStringList(_keyTripHistory) ?? [];
     existing.insert(0, trip.toJson());
     final capped = existing.take(_maxHistoryItems).toList();

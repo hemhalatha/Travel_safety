@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:maplibre_gl/maplibre_gl.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
@@ -32,6 +34,10 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
   Position? _startPosition;
   Position? _currentPosition;
   String _locationStatus = 'Getting location…';
+  MapLibreMapController? _mapController;
+  Circle? _currentCircle;
+  Circle? _destinationCircle;
+  Line? _routeLine;
 
   // Safety timer state
   Timer? _ticker;
@@ -89,6 +95,7 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
       _currentPosition = position;
       _locationStatus = 'Location tracked';
     });
+    await _syncMapAnnotations();
   }
 
   // ── Timer callback ─────────────────────────────────────────────────────────
@@ -114,8 +121,7 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
     }
 
     // Refresh location every 60 seconds.
-    if (_startPosition != null &&
-        timer.tick % 60 == 0) {
+    if (_startPosition != null && timer.tick % 10 == 0) {
       _refreshLocation();
     }
   }
@@ -124,6 +130,84 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
     final position = await ServiceLocator.location.getCurrentPosition();
     if (!mounted || position == null) return;
     setState(() => _currentPosition = position);
+    await _syncMapAnnotations();
+  }
+
+  void _onMapCreated(MapLibreMapController controller) {
+    _mapController = controller;
+    unawaited(_syncMapAnnotations());
+  }
+
+  Future<void> _syncMapAnnotations() async {
+    final controller = _mapController;
+    final trip = _trip;
+    if (controller == null || trip == null) return;
+
+    final current = _currentPosition;
+    if (current != null) {
+      final currentLatLng = LatLng(current.latitude, current.longitude);
+      if (_currentCircle == null) {
+        _currentCircle = await controller.addCircle(
+          CircleOptions(
+            geometry: currentLatLng,
+            circleColor: '#1B3A6B',
+            circleRadius: 8,
+            circleStrokeColor: '#FFFFFF',
+            circleStrokeWidth: 3,
+          ),
+        );
+      } else {
+        await controller.updateCircle(
+          _currentCircle!,
+          CircleOptions(geometry: currentLatLng),
+        );
+      }
+      await controller.animateCamera(CameraUpdate.newLatLng(currentLatLng));
+    }
+
+    if (trip.hasDestinationCoordinates) {
+      final destination = LatLng(
+        trip.destinationLatitude!,
+        trip.destinationLongitude!,
+      );
+      if (_destinationCircle == null) {
+        _destinationCircle = await controller.addCircle(
+          CircleOptions(
+            geometry: destination,
+            circleColor: '#C62828',
+            circleRadius: 9,
+            circleStrokeColor: '#FFFFFF',
+            circleStrokeWidth: 3,
+          ),
+        );
+      } else {
+        await controller.updateCircle(
+          _destinationCircle!,
+          CircleOptions(geometry: destination),
+        );
+      }
+    }
+
+    if (trip.routePath.isNotEmpty) {
+      final geometry = trip.routePath
+          .map((p) => LatLng(p.latitude, p.longitude))
+          .toList(growable: false);
+      if (_routeLine == null) {
+        _routeLine = await controller.addLine(
+          LineOptions(
+            geometry: geometry,
+            lineColor: '#1B3A6B',
+            lineWidth: 4,
+            lineOpacity: 0.9,
+          ),
+        );
+      } else {
+        await controller.updateLine(
+          _routeLine!,
+          LineOptions(geometry: geometry),
+        );
+      }
+    }
   }
 
   // ── Safety check dialog ────────────────────────────────────────────────────
@@ -135,8 +219,7 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         icon: const Icon(
           Icons.warning_amber_rounded,
           color: AppTheme.warningColor,
@@ -184,17 +267,14 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
 
     if (result == true) {
       // Safe — next check in 15 minutes.
-      _nextSafetyCheckAt =
-          DateTime.now().add(const Duration(minutes: 15));
+      _nextSafetyCheckAt = DateTime.now().add(const Duration(minutes: 15));
     } else if (result == false) {
       // Needs help — open emergency screen.
-      _nextSafetyCheckAt =
-          DateTime.now().add(const Duration(minutes: 30));
+      _nextSafetyCheckAt = DateTime.now().add(const Duration(minutes: 30));
       Navigator.of(context).pushNamed(AppConstants.routeEmergency);
     } else {
       // Dismissed via back — check again in 5 minutes.
-      _nextSafetyCheckAt =
-          DateTime.now().add(const Duration(minutes: 5));
+      _nextSafetyCheckAt = DateTime.now().add(const Duration(minutes: 5));
     }
   }
 
@@ -204,12 +284,11 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text(
           'End Trip?',
-          style: TextStyle(
-              fontWeight: FontWeight.w700, color: AppTheme.charcoal),
+          style:
+              TextStyle(fontWeight: FontWeight.w700, color: AppTheme.charcoal),
         ),
         content: const Text(
           'Your trip will be saved to history.',
@@ -244,9 +323,8 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
 
   String _formatCountdown() {
     if (_trip == null) return '—';
-    final remaining =
-        Duration(minutes: _trip!.durationMinutes) -
-            DateTime.now().difference(_trip!.startTime);
+    final remaining = Duration(minutes: _trip!.durationMinutes) -
+        DateTime.now().difference(_trip!.startTime);
 
     if (remaining.isNegative) {
       final overdue = remaining.abs();
@@ -286,9 +364,7 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
   String _distanceTravelled() {
     if (_startPosition == null || _currentPosition == null) return '—';
     final km = LocationService.distanceKm(_startPosition!, _currentPosition!);
-    return km < 1
-        ? '${(km * 1000).round()} m'
-        : '${km.toStringAsFixed(1)} km';
+    return km < 1 ? '${(km * 1000).round()} m' : '${km.toStringAsFixed(1)} km';
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -367,12 +443,28 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
                   const Divider(height: 20),
                   _DetailRow(
                     icon: Icons.timer_outlined,
-                    label: 'Expected duration',
+                    label: 'Calculated ETA',
                     value: '${_trip!.durationMinutes} min',
                   ),
+                  if (_trip!.routeDistanceKm != null) ...[
+                    const Divider(height: 20),
+                    _DetailRow(
+                      icon: Icons.route_outlined,
+                      label: 'Route distance',
+                      value: '${_trip!.routeDistanceKm!.toStringAsFixed(1)} km',
+                    ),
+                  ],
                 ],
               ),
             ),
+          ),
+          const SizedBox(height: 20),
+
+          const SectionHeader(title: 'Live Route'),
+          _LiveRouteMap(
+            trip: _trip!,
+            currentPosition: _currentPosition,
+            onMapCreated: _onMapCreated,
           ),
           const SizedBox(height: 20),
 
@@ -410,14 +502,79 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
               foregroundColor: AppTheme.dangerColor,
               side: const BorderSide(color: AppTheme.dangerColor),
             ),
-            icon: const Icon(Icons.phone, size: 16),
-            label: const Text('Contact Trusted Person'),
+            icon: const Icon(Icons.sms_outlined, size: 16),
+            label: const Text('Send Alert Message'),
           ),
         ],
       ),
     );
   }
 }
+
+class _LiveRouteMap extends StatelessWidget {
+  final TripModel trip;
+  final Position? currentPosition;
+  final ValueChanged<MapLibreMapController> onMapCreated;
+
+  const _LiveRouteMap({
+    required this.trip,
+    required this.currentPosition,
+    required this.onMapCreated,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!trip.hasDestinationCoordinates && currentPosition == null) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text(
+            'Live map will appear when location is available.',
+            style: TextStyle(color: AppTheme.mutedGray),
+          ),
+        ),
+      );
+    }
+
+    final center = currentPosition != null
+        ? LatLng(currentPosition!.latitude, currentPosition!.longitude)
+        : LatLng(trip.destinationLatitude!, trip.destinationLongitude!);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        height: 300,
+        width: double.infinity,
+        child: MapLibreMap(
+          styleString: _osmRasterStyle,
+          initialCameraPosition: CameraPosition(target: center, zoom: 13),
+          myLocationEnabled: currentPosition != null,
+          myLocationTrackingMode: MyLocationTrackingMode.none,
+          onMapCreated: onMapCreated,
+        ),
+      ),
+    );
+  }
+}
+
+final String _osmRasterStyle = jsonEncode({
+  'version': 8,
+  'sources': {
+    'osm': {
+      'type': 'raster',
+      'tiles': ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      'tileSize': 256,
+      'attribution': '© OpenStreetMap contributors',
+    },
+  },
+  'layers': [
+    {
+      'id': 'osm',
+      'type': 'raster',
+      'source': 'osm',
+    },
+  ],
+});
 
 // ── Private widgets ───────────────────────────────────────────────────────────
 
@@ -431,14 +588,12 @@ class _StatusBanner extends StatelessWidget {
         isDelayed ? const Color(0xFFFFF8F0) : const Color(0xFFEFF6FF);
     final borderColor =
         isDelayed ? const Color(0xFFFDE68A) : const Color(0xFFBFDBFE);
-    final dotColor =
-        isDelayed ? AppTheme.warningColor : AppTheme.primaryNavy;
+    final dotColor = isDelayed ? AppTheme.warningColor : AppTheme.primaryNavy;
     final label = isDelayed ? 'TRIP DELAYED' : 'TRIP ACTIVE';
     final subtitle = isDelayed
         ? 'Your trip has exceeded the expected time'
         : 'Monitoring your journey';
-    final textColor =
-        isDelayed ? AppTheme.warningColor : AppTheme.primaryNavy;
+    final textColor = isDelayed ? AppTheme.warningColor : AppTheme.primaryNavy;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

@@ -7,6 +7,8 @@ class AppConstants {
 
   static const String appName = 'Travel Safety';
   static const String tagline = 'Your journey, always protected.';
+  static const String networkUserAgent =
+      'TravelSafetyApp/2.0 contact:local-demo';
 
   // ---------------------------------------------------------------------------
   // Named routes

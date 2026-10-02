@@ -66,8 +66,10 @@ class LocationService {
   /// Distance in kilometres between two positions.
   static double distanceKm(Position a, Position b) =>
       Geolocator.distanceBetween(
-            a.latitude, a.longitude,
-            b.latitude, b.longitude,
-          ) /
+        a.latitude,
+        a.longitude,
+        b.latitude,
+        b.longitude,
+      ) /
       1000;
 }
